@@ -1,0 +1,6 @@
+{
+  "devDependencies": {
+    "@remotion/tailwind-v4": "^4.0.454",
+    "tailwindcss": "^4.2.4"
+  }
+}
