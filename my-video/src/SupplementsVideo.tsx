@@ -1,8 +1,10 @@
 import {
   AbsoluteFill,
+  Audio,
   interpolate,
   Sequence,
   spring,
+  staticFile,
   useCurrentFrame,
   useVideoConfig,
 } from "remotion";
@@ -548,6 +550,9 @@ const CUTS = [HOOK_DUR, HOOK_DUR + MYTH_DUR, HOOK_DUR + MYTH_DUR + EXCEP_DUR, HO
 
 export const SupplementsVideo: React.FC = () => (
   <AbsoluteFill style={{ backgroundColor: C.bg }}>
+    {/* Voiceover */}
+    <Audio src={staticFile("voiceover.wav")} volume={1} />
+
     {BEATS.map(({ from, dur, comp: Comp }, i) => (
       <Sequence key={i} from={from} durationInFrames={dur}>
         <Comp />
