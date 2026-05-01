@@ -2,10 +2,21 @@ import { Composition } from "remotion";
 import { HelloWorld, myCompSchema } from "./HelloWorld";
 import { Logo, myCompSchema2 } from "./HelloWorld/Logo";
 import { FitnessVideo } from "./FitnessVideo";
+import { ClickbaitVideo } from "./ClickbaitVideo";
 
 export const RemotionRoot: React.FC = () => {
   return (
     <>
+      <Composition
+        id="ClickbaitVideo"
+        component={ClickbaitVideo}
+        durationInFrames={2940}
+        fps={30}
+        width={1920}
+        height={1080}
+        defaultProps={{}}
+      />
+
       <Composition
         id="FitnessVideo"
         component={FitnessVideo}
