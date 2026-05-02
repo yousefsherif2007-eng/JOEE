@@ -9,12 +9,12 @@ import {
   staticFile,
 } from "remotion";
 
-// ── File mapping (by file-size → script length match) ───────────────────────
+// ── Cleaned videos (background noise removed via ffmpeg afftdn + loudnorm) ──
 const VIDEOS = {
-  abdullah: "WhatsApp Video 2026-05-01 at 9.04.03 AM.mp4",
-  gindy:    "WhatsApp Video 2026-05-01 at 9.04.08 AM.mp4",
-  malky:    "WhatsApp Video 2026-05-01 at 9.04.08 AM (1).mp4",
-  yehia:    "WhatsApp Video 2026-05-01 at 9.04.09 AM.mp4",
+  abdullah: "processed/abdullah.mp4",
+  gindy:    "processed/gindy.mp4",
+  malky:    "processed/malky.mp4",
+  yehia:    "processed/yehia.mp4",
 };
 
 const C = {
@@ -366,14 +366,14 @@ const Vignette: React.FC = () => (
 
 const AbdullahSegment: React.FC = () => {
   const captions: CaptionEntry[] = [
-    { from: 30,  dur: 70,  text: '"Have you ever seen a title like…"' },
-    { from: 100, dur: 75,  text: '"You won\'t believe what happened next!"' },
-    { from: 175, dur: 65,  text: "That's called clickbait." },
-    { from: 245, dur: 120, text: "Designed to grab your attention and make you click," },
-    { from: 370, dur: 105, text: "even if the content isn't true or is exaggerated." },
-    { from: 480, dur: 58,  text: "For example, I see a post that says:" },
-    { from: 545, dur: 115, text: '"Eating chocolate every day makes you lose weight instantly!"' },
-    { from: 665, dur: 85,  text: "It sounds amazing, so I click it." },
+    { from: 20,  dur: 80,  text: "Have you ever seen a title like:" },
+    { from: 105, dur: 90,  text: '"You won\'t believe what happened next!"' },
+    { from: 200, dur: 70,  text: "That's called clickbait." },
+    { from: 275, dur: 130, text: "Clickbait is designed to grab your attention and make you click," },
+    { from: 410, dur: 110, text: "even if the content isn't true or is exaggerated." },
+    { from: 525, dur: 65,  text: "For example, I see a post that says:" },
+    { from: 595, dur: 120, text: '"Eating chocolate every day makes you lose weight instantly!"' },
+    { from: 660, dur: 90,  text: "It sounds amazing, so I click it." },
   ];
 
   return (
@@ -464,10 +464,10 @@ const SplitScreenOverlay: React.FC = () => {
 
 const GindySegment: React.FC = () => {
   const captions: CaptionEntry[] = [
-    { from: 20,  dur: 80,  text: "But when I open the article, it's not what I expected." },
-    { from: 110, dur: 90,  text: '"Chocolate can be part of a balanced diet,"' },
-    { from: 210, dur: 110, text: "which is very different from losing weight instantly." },
-    { from: 330, dur: 130, text: "Clickbait often exaggerates or twists information" },
+    { from: 20,  dur: 90,  text: "But when I open the article, it's not what I expected." },
+    { from: 115, dur: 100, text: "It might say: 'Chocolate can be part of a balanced diet,'" },
+    { from: 220, dur: 115, text: "which is very different from losing weight instantly." },
+    { from: 340, dur: 125, text: "Clickbait often exaggerates or twists information" },
     { from: 470, dur: 100, text: "just to get more views." },
   ];
 
@@ -510,11 +510,11 @@ const FAKE_HEADLINES = [
 
 const MalkySegment: React.FC = () => {
   const captions: CaptionEntry[] = [
-    { from: 20,  dur: 75,  text: "Sometimes it's even worse." },
-    { from: 100, dur: 85,  text: "The title can be completely misleading," },
-    { from: 195, dur: 75,  text: "just to make you curious." },
-    { from: 278, dur: 110, text: "You click, but the content doesn't match at all." },
-    { from: 400, dur: 110, text: "It wastes your time and spreads confusion." },
+    { from: 20,  dur: 78,  text: "Sometimes it's even worse." },
+    { from: 103, dur: 90,  text: "The title can be completely misleading," },
+    { from: 198, dur: 78,  text: "just to make you curious." },
+    { from: 281, dur: 115, text: "You click, but the content doesn't match at all." },
+    { from: 401, dur: 115, text: "It wastes your time and spreads confusion." },
   ];
 
   return (
@@ -566,12 +566,12 @@ const MalkySegment: React.FC = () => {
 
 const YehiaSegment: React.FC = () => {
   const captions: CaptionEntry[] = [
-    { from: 20,  dur: 100, text: "That's why media literacy is important." },
-    { from: 130, dur: 95,  text: "Before clicking or sharing, ask yourself:" },
-    { from: 235, dur: 90,  text: "Is this source reliable?" },
-    { from: 335, dur: 90,  text: "Does the content match the title?" },
-    { from: 435, dur: 80,  text: "Don't let clickbait trick you." },
-    { from: 520, dur: 80,  text: "Think before you click." },
+    { from: 20,  dur: 105, text: "That's why media literacy is important." },
+    { from: 130, dur: 98,  text: "Before clicking or sharing, ask yourself:" },
+    { from: 233, dur: 92,  text: "Is this source reliable?" },
+    { from: 330, dur: 92,  text: "Does the content match the title?" },
+    { from: 427, dur: 85,  text: "Don't let clickbait trick you." },
+    { from: 517, dur: 83,  text: "Think before you click." },
   ];
 
   return (
