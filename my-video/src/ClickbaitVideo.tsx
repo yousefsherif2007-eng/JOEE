@@ -549,8 +549,8 @@ const CUTS = [A, G, M, Y];
 export const ClickbaitVideo: React.FC = () => (
   <AbsoluteFill style={{ backgroundColor: C.dark }}>
     <Sequence from={0} durationInFrames={HOOK_DUR}>     <HookFrame />       </Sequence>
-    <Sequence from={A} durationInFrames={ABDULLAH_DUR}> <AbdullahSegment /> </Sequence>
-    <Sequence from={G} durationInFrames={GINDY_DUR}>    <GindySegment />    </Sequence>
+    <Sequence from={A} durationInFrames={GINDY_DUR}>    <GindySegment />    </Sequence>
+    <Sequence from={G} durationInFrames={ABDULLAH_DUR}> <AbdullahSegment /> </Sequence>
     <Sequence from={M} durationInFrames={MALKY_DUR}>    <MalkySegment />    </Sequence>
     <Sequence from={Y} durationInFrames={YEHIA_DUR}>    <YehiaSegment />    </Sequence>
     <Sequence from={E} durationInFrames={ENDCARD_DUR}>  <EndCard />         </Sequence>
