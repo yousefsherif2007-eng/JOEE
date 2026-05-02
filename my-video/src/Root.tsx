@@ -21,10 +21,10 @@ export const RemotionRoot: React.FC = () => {
       <Composition
         id="ClickbaitVideo"
         component={ClickbaitVideo}
-        durationInFrames={2940}
+        durationInFrames={2601}
         fps={30}
-        width={1920}
-        height={1080}
+        width={1080}
+        height={1920}
         defaultProps={{}}
       />
 

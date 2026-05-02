@@ -9,452 +9,259 @@ import {
   staticFile,
 } from "remotion";
 
-// ── Cleaned videos (background noise removed via ffmpeg afftdn + loudnorm) ──
-const VIDEOS = {
+// ── Videos (cleaned, 576×1024 portrait = perfect 9:16) ──────────────────────
+const V = {
   abdullah: "processed/abdullah.mp4",
   gindy:    "processed/gindy.mp4",
   malky:    "processed/malky.mp4",
   yehia:    "processed/yehia.mp4",
 };
 
+// ── Palette ──────────────────────────────────────────────────────────────────
 const C = {
-  red:    "#FF3B3B",
+  red:    "#FF3030",
   green:  "#00E5A0",
   yellow: "#FFD700",
   blue:   "#4DAAFF",
+  white:  "#FFFFFF",
+  dark:   "#080808",
 };
+const FONT = "'Arial Black', Impact, sans-serif";
 
-// ── Segment durations ────────────────────────────────────────────────────────
-const A_DUR = 750;   // Abdullah  0:00–0:25
-const G_DUR = 750;   // Gindy     0:25–0:50
-const M_DUR = 600;   // Malky     0:50–1:10
-const Y_DUR = 600;   // Yehia     1:10–1:30
-const CTA_DUR = 240; // outro     1:30–1:38
+// ── Segment durations (frames @ 30fps) ───────────────────────────────────────
+const HOOK_DUR     = 90;   // 3s  – hook frame
+const ABDULLAH_DUR = 750;  // 25s – uses first 25s of 34s clip
+const GINDY_DUR    = 750;  // 25s – uses first 25s of 79s clip
+const MALKY_DUR    = 381;  // 12.7s – full clip
+const YEHIA_DUR    = 540;  // 18s – full clip
+const ENDCARD_DUR  = 90;   // 3s  – CTA end screen
+// Total: 2601 frames ≈ 86.7 seconds
 
 // ═══════════════════════════════════════════════════════════════════════════
-// SHARED COMPONENTS
+// PRIMITIVES
 // ═══════════════════════════════════════════════════════════════════════════
 
-const LowerThird: React.FC<{ name: string; accent: string }> = ({ name, accent }) => {
-  const frame = useCurrentFrame();
-  const { fps } = useVideoConfig();
-  const slide = spring({ frame, fps, config: { damping: 120, stiffness: 180 } });
-  const x = interpolate(slide, [0, 1], [-320, 0]);
-
-  return (
-    <div style={{ position: "absolute", bottom: 120, left: 80, transform: `translateX(${x}px)`, zIndex: 55 }}>
-      <div style={{ position: "absolute", left: 0, top: 0, width: 5, height: "100%", backgroundColor: accent, borderRadius: 3 }} />
-      <div style={{
-        paddingLeft: 20,
-        fontFamily: "'Arial Black', sans-serif",
-        fontWeight: 900,
-        fontSize: 38,
-        color: "#fff",
-        textTransform: "uppercase",
-        letterSpacing: 4,
-        textShadow: "0 2px 16px rgba(0,0,0,0.9)",
-      }}>{name}</div>
-      <div style={{
-        paddingLeft: 20,
-        fontFamily: "Arial, sans-serif",
-        fontSize: 18,
-        color: accent,
-        letterSpacing: 3,
-        textTransform: "uppercase",
-      }}>Presenter</div>
-    </div>
-  );
-};
-
-const Caption: React.FC<{ text: string; dur: number }> = ({ text, dur }) => {
-  const frame = useCurrentFrame();
-  const opacity = interpolate(frame, [0, 8, dur - 10, dur], [0, 1, 1, 0], {
-    extrapolateLeft: "clamp",
-    extrapolateRight: "clamp",
-  });
-  return (
-    <div style={{
-      position: "absolute",
-      bottom: 52,
-      left: 0, right: 0,
-      display: "flex",
-      justifyContent: "center",
-      opacity,
-      zIndex: 65,
-      padding: "0 80px",
-    }}>
-      <div style={{
-        backgroundColor: "rgba(0,0,0,0.82)",
-        borderRadius: 8,
-        padding: "14px 32px",
-        fontFamily: "Arial, sans-serif",
-        fontWeight: 700,
-        fontSize: 34,
-        color: "#fff",
-        textAlign: "center",
-        maxWidth: 1300,
-        lineHeight: 1.35,
-      }}>{text}</div>
-    </div>
-  );
-};
-
-type CaptionEntry = { from: number; dur: number; text: string };
-
-const CaptionTrack: React.FC<{ captions: CaptionEntry[] }> = ({ captions }) => (
+// Cinematic letterbox (subtle — keeps faces visible)
+const Bars: React.FC = () => (
   <>
-    {captions.map(({ from, dur, text }, i) => (
-      <Sequence key={i} from={from} durationInFrames={dur}>
-        <Caption text={text} dur={dur} />
-      </Sequence>
-    ))}
+    <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 60, background: C.dark, zIndex: 100 }} />
+    <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, height: 60, background: C.dark, zIndex: 100 }} />
   </>
 );
 
-const KineticText: React.FC<{
-  text: string;
-  color?: string;
-  size?: number;
-  from?: "left" | "right" | "bottom";
-}> = ({ text, color = C.yellow, size = 110, from = "right" }) => {
-  const frame = useCurrentFrame();
-  const { fps } = useVideoConfig();
-  const p = spring({ frame, fps, config: { damping: 75, stiffness: 350 } });
-  const offset = interpolate(p, [0, 1], [500, 0]);
-  const transform =
-    from === "right" ? `translateX(${offset}px)`
-    : from === "left" ? `translateX(${-offset}px)`
-    : `translateY(${offset}px)`;
-
-  return (
-    <AbsoluteFill style={{ display: "flex", alignItems: "center", justifyContent: "center", zIndex: 75, pointerEvents: "none" }}>
-      <div style={{
-        fontFamily: "'Arial Black', Impact, sans-serif",
-        fontWeight: 900,
-        fontSize: size,
-        color,
-        textTransform: "uppercase",
-        letterSpacing: 8,
-        transform,
-        textShadow: `0 0 50px ${color}66, 0 4px 24px rgba(0,0,0,0.95)`,
-        WebkitTextStroke: `2px ${color}`,
-      }}>{text}</div>
-    </AbsoluteFill>
-  );
-};
-
-const SocialPost: React.FC<{ headline: string; sub?: string }> = ({ headline, sub }) => {
-  const frame = useCurrentFrame();
-  const { fps } = useVideoConfig();
-  const slide = spring({ frame, fps, config: { damping: 120, stiffness: 200 } });
-  const y = interpolate(slide, [0, 1], [220, 0]);
-  const opacity = interpolate(frame, [0, 12], [0, 1], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
-
-  return (
-    <div style={{
-      position: "absolute",
-      bottom: 170,
-      right: 70,
-      width: 490,
-      transform: `translateY(${y}px)`,
-      opacity,
-      zIndex: 80,
-    }}>
-      <div style={{
-        backgroundColor: "#141414",
-        borderRadius: 18,
-        border: `2.5px solid ${C.red}`,
-        overflow: "hidden",
-        boxShadow: `0 24px 70px rgba(0,0,0,0.85), 0 0 40px ${C.red}33`,
-      }}>
-        <div style={{
-          backgroundColor: "#1e0808",
-          padding: "13px 18px",
-          display: "flex",
-          alignItems: "center",
-          gap: 12,
-          borderBottom: `1px solid ${C.red}33`,
-        }}>
-          <div style={{ width: 36, height: 36, borderRadius: "50%", backgroundColor: "#6b0000", flexShrink: 0 }} />
-          <div>
-            <div style={{ fontSize: 14, color: "#fff", fontWeight: 700 }}>ViralNews247</div>
-            <div style={{ fontSize: 12, color: "#777" }}>Sponsored · 2h ago</div>
-          </div>
-        </div>
-        <div style={{ padding: "18px 18px 14px" }}>
-          <div style={{ fontWeight: 800, fontSize: 19, color: "#FF7070", lineHeight: 1.4, marginBottom: 12 }}>{headline}</div>
-          {sub && <div style={{ fontSize: 14, color: "#555", fontStyle: "italic" }}>{sub}</div>}
-          <div style={{
-            marginTop: 14,
-            paddingTop: 12,
-            borderTop: "1px solid #222",
-            display: "flex",
-            gap: 18,
-            fontSize: 13,
-            color: "#444",
-          }}>
-            <span>👍 24.3K</span>
-            <span>💬 3.1K</span>
-            <span>↗ Share</span>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-};
-
-const Stamp: React.FC<{ text: string; color?: string; lx?: string; ly?: string; rot?: number }> = ({
-  text, color = C.red, lx = "50%", ly = "30%", rot = -12,
-}) => {
-  const frame = useCurrentFrame();
-  const { fps } = useVideoConfig();
-  const scale = spring({ frame, fps, config: { damping: 55, stiffness: 500 } });
-
-  return (
-    <div style={{
-      position: "absolute",
-      left: lx, top: ly,
-      transform: `translate(-50%, -50%) rotate(${rot}deg) scale(${scale})`,
-      border: `6px solid ${color}`,
-      borderRadius: 6,
-      padding: "8px 22px",
-      fontFamily: "'Arial Black', sans-serif",
-      fontWeight: 900,
-      fontSize: 48,
-      color,
-      textTransform: "uppercase",
-      letterSpacing: 5,
-      opacity: 0.9,
-      zIndex: 90,
-      textShadow: `0 0 24px ${color}`,
-      boxShadow: `inset 0 0 20px ${color}22`,
-      pointerEvents: "none",
-    }}>{text}</div>
-  );
-};
-
-const GlitchOverlay: React.FC = () => {
-  const frame = useCurrentFrame();
-  const active = frame % 18 < 3;
-  if (!active) return null;
-  return (
-    <>
-      <div style={{ position: "absolute", inset: 0, backgroundColor: "rgba(255,0,0,0.07)", transform: "translateX(9px)", mixBlendMode: "screen", zIndex: 18, pointerEvents: "none" }} />
-      <div style={{ position: "absolute", inset: 0, backgroundColor: "rgba(0,255,255,0.07)", transform: "translateX(-9px)", mixBlendMode: "screen", zIndex: 18, pointerEvents: "none" }} />
-    </>
-  );
-};
-
-const FakeHeadlineCard: React.FC<{ text: string }> = ({ text }) => {
-  const frame = useCurrentFrame();
-  const { fps } = useVideoConfig();
-  const scale = spring({ frame, fps, config: { damping: 100, stiffness: 280 } });
-  return (
-    <div style={{
-      fontFamily: "'Arial Black', sans-serif",
-      fontWeight: 900,
-      fontSize: 28,
-      color: "#FF8080",
-      textAlign: "center",
-      padding: "18px 28px",
-      backgroundColor: "#160000",
-      border: `2px solid ${C.red}55`,
-      borderRadius: 12,
-      transform: `scale(${scale})`,
-      boxShadow: `0 8px 40px rgba(0,0,0,0.8), 0 0 20px ${C.red}22`,
-    }}>{text}</div>
-  );
-};
-
-const TimeWastedCounter: React.FC = () => {
-  const frame = useCurrentFrame();
-  const seconds = Math.floor(interpolate(frame, [0, 90], [0, 47], { extrapolateLeft: "clamp", extrapolateRight: "clamp" }));
-  const opacity = interpolate(frame, [0, 15], [0, 1], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
-  return (
-    <div style={{ position: "absolute", bottom: 170, right: 70, opacity, zIndex: 75, textAlign: "center" }}>
-      <div style={{ fontFamily: "Arial, sans-serif", fontSize: 15, color: "#666", letterSpacing: 5, textTransform: "uppercase", marginBottom: 8 }}>Time Wasted</div>
-      <div style={{
-        fontFamily: "'Arial Black', sans-serif",
-        fontWeight: 900,
-        fontSize: 70,
-        color: C.red,
-        textShadow: `0 0 40px ${C.red}99`,
-        fontVariantNumeric: "tabular-nums",
-      }}>00:{seconds.toString().padStart(2, "0")}</div>
-    </div>
-  );
-};
-
-const ChecklistItem: React.FC<{ text: string; delay: number }> = ({ text, delay }) => {
-  const frame = useCurrentFrame();
-  const { fps } = useVideoConfig();
-  const localFrame = Math.max(0, frame - delay);
-  const slide = spring({ frame: localFrame, fps, config: { damping: 120, stiffness: 180 } });
-  const x = interpolate(slide, [0, 1], [-250, 0]);
-  const opacity = interpolate(localFrame, [0, 18], [0, 1], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
-
-  return (
-    <div style={{
-      transform: `translateX(${x}px)`,
-      opacity,
-      display: "flex",
-      alignItems: "center",
-      gap: 18,
-      padding: "16px 26px",
-      backgroundColor: `${C.green}11`,
-      border: `1.5px solid ${C.green}44`,
-      borderRadius: 14,
-      marginBottom: 18,
-    }}>
-      <div style={{
-        width: 38, height: 38,
-        borderRadius: "50%",
-        backgroundColor: C.green,
-        display: "flex", alignItems: "center", justifyContent: "center",
-        flexShrink: 0,
-        fontWeight: 900, fontSize: 20, color: "#000",
-      }}>✓</div>
-      <div style={{ fontFamily: "Arial, sans-serif", fontWeight: 700, fontSize: 27, color: "#fff", lineHeight: 1.3 }}>{text}</div>
-    </div>
-  );
-};
-
-const Checklist: React.FC = () => (
-  <div style={{ position: "absolute", right: 70, top: "50%", transform: "translateY(-50%)", width: 600, zIndex: 70 }}>
-    {[
-      "Is this source reliable?",
-      "Does the content match the title?",
-      "Think before you click.",
-    ].map((item, i) => (
-      <ChecklistItem key={i} text={item} delay={i * 28} />
-    ))}
-  </div>
-);
-
-const VerifiedBadge: React.FC = () => {
-  const frame = useCurrentFrame();
-  const { fps } = useVideoConfig();
-  const scale = spring({ frame, fps, config: { damping: 100, stiffness: 220 } });
-  return (
-    <div style={{
-      position: "absolute", top: 80, right: 80,
-      transform: `scale(${scale})`,
-      zIndex: 88,
-      display: "flex", alignItems: "center", gap: 12,
-      backgroundColor: `${C.green}18`,
-      border: `2px solid ${C.green}`,
-      borderRadius: 50,
-      padding: "10px 26px",
-    }}>
-      <span style={{ fontSize: 26, color: C.green }}>✓</span>
-      <span style={{ fontFamily: "Arial, sans-serif", fontWeight: 700, fontSize: 22, color: C.green, letterSpacing: 3 }}>VERIFIED</span>
-    </div>
-  );
-};
-
-const Vignette: React.FC = () => (
+// Vignette
+const Vignette: React.FC<{ strength?: number }> = ({ strength = 0.65 }) => (
   <div style={{
     position: "absolute", inset: 0,
-    background: "radial-gradient(ellipse at center, transparent 40%, rgba(0,0,0,0.6) 100%)",
+    background: `radial-gradient(ellipse at center, transparent 40%, rgba(0,0,0,${strength}) 100%)`,
     zIndex: 8, pointerEvents: "none",
   }} />
 );
 
-// ═══════════════════════════════════════════════════════════════════════════
-// SPEAKER SEGMENTS
-// ═══════════════════════════════════════════════════════════════════════════
-
-const AbdullahSegment: React.FC = () => {
-  const captions: CaptionEntry[] = [
-    { from: 20,  dur: 80,  text: "Have you ever seen a title like:" },
-    { from: 105, dur: 90,  text: '"You won\'t believe what happened next!"' },
-    { from: 200, dur: 70,  text: "That's called clickbait." },
-    { from: 275, dur: 130, text: "Clickbait is designed to grab your attention and make you click," },
-    { from: 410, dur: 110, text: "even if the content isn't true or is exaggerated." },
-    { from: 525, dur: 65,  text: "For example, I see a post that says:" },
-    { from: 595, dur: 120, text: '"Eating chocolate every day makes you lose weight instantly!"' },
-    { from: 660, dur: 90,  text: "It sounds amazing, so I click it." },
-  ];
-
+// Full-screen video with Ken Burns zoom + color grade
+const CinematicClip: React.FC<{
+  src: string;
+  startFrom?: number;
+  zoomTo?: number;
+  filter?: string;
+  fadeIn?: boolean;
+}> = ({ src, startFrom = 0, zoomTo = 1.06, filter = "brightness(0.85) contrast(1.15) saturate(1.0)", fadeIn = false }) => {
+  const frame = useCurrentFrame();
+  const { durationInFrames } = useVideoConfig();
+  const zoom = interpolate(frame, [0, durationInFrames], [1, zoomTo], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
+  const opacity = fadeIn ? interpolate(frame, [0, 20], [0, 1], { extrapolateLeft: "clamp", extrapolateRight: "clamp" }) : 1;
   return (
-    <AbsoluteFill>
+    <AbsoluteFill style={{ opacity, overflow: "hidden" }}>
       <Video
-        src={staticFile(VIDEOS.abdullah)}
-        style={{
-          width: "100%", height: "100%", objectFit: "cover",
-          filter: "brightness(0.86) contrast(1.22) saturate(1.28)",
-        }}
+        src={staticFile(src)}
+        startFrom={startFrom}
+        style={{ width: "100%", height: "100%", objectFit: "cover", transform: `scale(${zoom})`, filter }}
       />
-      {/* warm red tension tint */}
-      <div style={{ position: "absolute", inset: 0, background: "linear-gradient(135deg, rgba(160,30,0,0.14) 0%, transparent 55%)", zIndex: 6, pointerEvents: "none" }} />
-      <Vignette />
-
-      {/* CLICKBAIT slams in */}
-      <Sequence from={92} durationInFrames={78}>
-        <KineticText text="CLICKBAIT" color={C.yellow} size={115} from="right" />
-      </Sequence>
-
-      {/* Social media post */}
-      <Sequence from={205} durationInFrames={545}>
-        <SocialPost
-          headline='Eating chocolate every day makes you lose weight INSTANTLY! 🍫🔥'
-          sub="Doctors DON'T want you to know this secret…"
-        />
-      </Sequence>
-
-      {/* Lower third */}
-      <Sequence from={18} durationInFrames={210}>
-        <LowerThird name="Abdullah" accent={C.yellow} />
-      </Sequence>
-
-      <CaptionTrack captions={captions} />
     </AbsoluteFill>
   );
 };
 
-const SplitScreenOverlay: React.FC = () => {
+// RGB glitch flash
+const GlitchFlash: React.FC = () => {
   const frame = useCurrentFrame();
-  const opacity = interpolate(frame, [0, 28], [0, 1], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
+  const active = frame % 20 < 3;
+  if (!active) return null;
   return (
-    <AbsoluteFill style={{ opacity, zIndex: 30 }}>
-      {/* left – clickbait / red */}
+    <>
+      <div style={{ position: "absolute", inset: 0, backgroundColor: "rgba(255,0,0,0.07)", transform: "translateX(8px)", mixBlendMode: "screen", zIndex: 15, pointerEvents: "none" }} />
+      <div style={{ position: "absolute", inset: 0, backgroundColor: "rgba(0,255,255,0.07)", transform: "translateX(-8px)", mixBlendMode: "screen", zIndex: 15, pointerEvents: "none" }} />
+    </>
+  );
+};
+
+// White flash cut
+const FlashCut: React.FC = () => {
+  const frame = useCurrentFrame();
+  const o = interpolate(frame, [0, 4, 18], [1, 0.2, 0], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
+  return <div style={{ position: "absolute", inset: 0, backgroundColor: "#fff", opacity: o, zIndex: 400, pointerEvents: "none" }} />;
+};
+
+// Social handle lower-third
+const LowerThird: React.FC<{ handle: string; accent: string }> = ({ handle, accent }) => {
+  const frame = useCurrentFrame();
+  const { fps } = useVideoConfig();
+  const slide = spring({ frame, fps, config: { damping: 120, stiffness: 180 } });
+  const x = interpolate(slide, [0, 1], [-400, 0]);
+  return (
+    <div style={{ position: "absolute", bottom: 130, left: 40, transform: `translateX(${x}px)`, zIndex: 60 }}>
       <div style={{
-        position: "absolute", left: 0, top: 0, bottom: 0, width: "49%",
-        backgroundColor: "rgba(90,0,0,0.72)",
-        backdropFilter: "blur(3px)",
-        display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
-        padding: 44, gap: 18,
-        borderRight: `3px solid ${C.red}`,
+        display: "flex", alignItems: "center", gap: 10,
+        backgroundColor: "rgba(0,0,0,0.75)",
+        backdropFilter: "blur(8px)",
+        borderRadius: 50,
+        padding: "10px 20px 10px 14px",
+        border: `1.5px solid ${accent}`,
       }}>
-        <div style={{ fontSize: 17, color: C.red, fontWeight: 800, textTransform: "uppercase", letterSpacing: 5 }}>Title Says:</div>
-        <div style={{ fontSize: 22, color: "#FF9999", fontWeight: 700, textAlign: "center", lineHeight: 1.45 }}>
-          "Eating chocolate every day makes you lose weight INSTANTLY!"
+        <div style={{
+          width: 34, height: 34, borderRadius: "50%",
+          backgroundColor: accent,
+          display: "flex", alignItems: "center", justifyContent: "center",
+          fontFamily: FONT, fontWeight: 900, fontSize: 16, color: "#000",
+        }}>{handle[1].toUpperCase()}</div>
+        <span style={{ fontFamily: FONT, fontWeight: 700, fontSize: 22, color: "#fff", letterSpacing: 1 }}>{handle}</span>
+      </div>
+    </div>
+  );
+};
+
+// Kinetic word slam
+const KineticText: React.FC<{
+  text: string; color?: string; size?: number;
+  from?: "left" | "right" | "bottom" | "top"; delay?: number;
+}> = ({ text, color = C.yellow, size = 100, from = "right", delay = 0 }) => {
+  const frame = useCurrentFrame();
+  const { fps } = useVideoConfig();
+  const lf = Math.max(0, frame - delay);
+  const p = spring({ frame: lf, fps, config: { damping: 70, stiffness: 340 } });
+  const dist = interpolate(p, [0, 1], [500, 0]);
+  const tr =
+    from === "right"  ? `translateX(${dist}px)` :
+    from === "left"   ? `translateX(${-dist}px)` :
+    from === "bottom" ? `translateY(${dist}px)` :
+                        `translateY(${-dist}px)`;
+  const opacity = interpolate(lf, [0, 8], [0, 1], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
+  return (
+    <div style={{
+      fontFamily: FONT, fontWeight: 900, fontSize: size,
+      color, textTransform: "uppercase", letterSpacing: 4,
+      textAlign: "center",
+      transform: tr, opacity,
+      textShadow: `0 0 50px ${color}55, 0 4px 20px rgba(0,0,0,0.9)`,
+      WebkitTextStroke: `1.5px ${color}`,
+      lineHeight: 1.05, padding: "0 50px",
+    }}>{text}</div>
+  );
+};
+
+// Fake social media post (phone style)
+const FakePost: React.FC = () => {
+  const frame = useCurrentFrame();
+  const { fps } = useVideoConfig();
+  const slide = spring({ frame, fps, config: { damping: 110, stiffness: 200 } });
+  const y = interpolate(slide, [0, 1], [300, 0]);
+  const opacity = interpolate(frame, [0, 12], [0, 1], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
+  return (
+    <div style={{
+      position: "absolute", bottom: 160, left: 30, right: 30,
+      transform: `translateY(${y}px)`, opacity, zIndex: 75,
+    }}>
+      <div style={{
+        backgroundColor: "#161616",
+        borderRadius: 20,
+        border: `2px solid ${C.red}`,
+        overflow: "hidden",
+        boxShadow: `0 20px 60px rgba(0,0,0,0.9), 0 0 40px ${C.red}33`,
+      }}>
+        <div style={{
+          backgroundColor: "#1c0505", padding: "12px 16px",
+          display: "flex", alignItems: "center", gap: 10,
+          borderBottom: `1px solid ${C.red}33`,
+        }}>
+          <div style={{ width: 34, height: 34, borderRadius: "50%", backgroundColor: "#6b0000" }} />
+          <div>
+            <div style={{ fontSize: 13, color: "#fff", fontWeight: 700 }}>ViralHealth247</div>
+            <div style={{ fontSize: 11, color: "#666" }}>Sponsored · 2h</div>
+          </div>
+        </div>
+        <div style={{ padding: "16px" }}>
+          <div style={{ fontWeight: 800, fontSize: 16, color: "#FF7070", lineHeight: 1.45, marginBottom: 12 }}>
+            🍫🔥 Eating chocolate EVERY DAY makes you lose weight INSTANTLY! Doctors won't tell you this!
+          </div>
+          <div style={{ display: "flex", gap: 16, fontSize: 12, color: "#444", paddingTop: 10, borderTop: "1px solid #222" }}>
+            <span>👍 48.2K</span><span>💬 6.1K</span><span>↗ Share</span>
+          </div>
         </div>
       </div>
+    </div>
+  );
+};
 
-      {/* VS badge */}
+// Animated stamp
+const Stamp: React.FC<{ text: string; color?: string; rotation?: number }> = ({
+  text, color = C.red, rotation = -12,
+}) => {
+  const frame = useCurrentFrame();
+  const { fps } = useVideoConfig();
+  const scale = spring({ frame, fps, config: { damping: 50, stiffness: 500 } });
+  return (
+    <div style={{
+      position: "absolute", top: "30%", left: "50%",
+      transform: `translate(-50%, -50%) rotate(${rotation}deg) scale(${scale})`,
+      border: `7px solid ${color}`, borderRadius: 6,
+      padding: "10px 24px",
+      fontFamily: FONT, fontWeight: 900, fontSize: 56,
+      color, textTransform: "uppercase", letterSpacing: 6,
+      opacity: 0.9, zIndex: 90,
+      textShadow: `0 0 30px ${color}`,
+      boxShadow: `inset 0 0 30px ${color}22`,
+    }}>{text}</div>
+  );
+};
+
+// Split screen overlay (Gindy)
+const SplitScreen: React.FC = () => {
+  const frame = useCurrentFrame();
+  const opacity = interpolate(frame, [0, 30], [0, 1], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
+  return (
+    <AbsoluteFill style={{ opacity, zIndex: 35 }}>
+      {/* Left – clickbait / red tint */}
+      <div style={{
+        position: "absolute", left: 0, top: 0, bottom: 0, width: "49%",
+        backgroundColor: "rgba(100,0,0,0.68)", backdropFilter: "blur(2px)",
+        display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
+        padding: 30, gap: 14,
+        borderRight: `3px solid ${C.red}`,
+      }}>
+        <div style={{ fontSize: 14, color: C.red, fontWeight: 800, textTransform: "uppercase", letterSpacing: 5, textAlign: "center" }}>Title Says:</div>
+        <div style={{ fontSize: 18, color: "#FF9999", fontWeight: 700, textAlign: "center", lineHeight: 1.4 }}>
+          "Eating chocolate makes you lose weight INSTANTLY!"
+        </div>
+      </div>
+      {/* VS */}
       <div style={{
         position: "absolute", left: "50%", top: "50%",
-        transform: "translate(-50%, -50%)",
+        transform: "translate(-50%,-50%)",
         backgroundColor: "#fff", borderRadius: "50%",
-        width: 62, height: 62,
+        width: 54, height: 54,
         display: "flex", alignItems: "center", justifyContent: "center",
-        fontFamily: "'Arial Black', sans-serif", fontWeight: 900, fontSize: 20, color: "#000",
-        zIndex: 38,
-        boxShadow: "0 4px 24px rgba(0,0,0,0.6)",
+        fontFamily: FONT, fontWeight: 900, fontSize: 18, color: "#000",
+        zIndex: 40, boxShadow: "0 4px 20px rgba(0,0,0,0.6)",
       }}>VS</div>
-
-      {/* right – truth / blue */}
+      {/* Right – truth / blue */}
       <div style={{
         position: "absolute", right: 0, top: 0, bottom: 0, width: "49%",
-        backgroundColor: "rgba(0,30,90,0.72)",
-        backdropFilter: "blur(3px)",
+        backgroundColor: "rgba(0,30,90,0.68)", backdropFilter: "blur(2px)",
         display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
-        padding: 44, gap: 18,
+        padding: 30, gap: 14,
         borderLeft: `3px solid ${C.blue}`,
       }}>
-        <div style={{ fontSize: 17, color: C.blue, fontWeight: 800, textTransform: "uppercase", letterSpacing: 5 }}>Article Says:</div>
-        <div style={{ fontSize: 22, color: "#AADDFF", fontWeight: 700, textAlign: "center", lineHeight: 1.45 }}>
+        <div style={{ fontSize: 14, color: C.blue, fontWeight: 800, textTransform: "uppercase", letterSpacing: 5, textAlign: "center" }}>Article Says:</div>
+        <div style={{ fontSize: 18, color: "#AADDFF", fontWeight: 700, textAlign: "center", lineHeight: 1.4 }}>
           "Chocolate can be part of a balanced diet."
         </div>
       </div>
@@ -462,231 +269,297 @@ const SplitScreenOverlay: React.FC = () => {
   );
 };
 
-const GindySegment: React.FC = () => {
-  const captions: CaptionEntry[] = [
-    { from: 20,  dur: 90,  text: "But when I open the article, it's not what I expected." },
-    { from: 115, dur: 100, text: "It might say: 'Chocolate can be part of a balanced diet,'" },
-    { from: 220, dur: 115, text: "which is very different from losing weight instantly." },
-    { from: 340, dur: 125, text: "Clickbait often exaggerates or twists information" },
-    { from: 470, dur: 100, text: "just to get more views." },
-  ];
-
-  return (
-    <AbsoluteFill>
-      <Video
-        src={staticFile(VIDEOS.gindy)}
-        style={{
-          width: "100%", height: "100%", objectFit: "cover",
-          filter: "brightness(0.85) contrast(1.12) saturate(0.88)",
-        }}
-      />
-      <Vignette />
-
-      {/* Split screen appears at frame 115 */}
-      <Sequence from={115} durationInFrames={635}>
-        <SplitScreenOverlay />
-      </Sequence>
-
-      {/* EXAGGERATED stamp at frame 245 */}
-      <Sequence from={245} durationInFrames={505}>
-        <Stamp text="EXAGGERATED" color={C.red} lx="25%" ly="78%" rot={-10} />
-      </Sequence>
-
-      {/* Lower third */}
-      <Sequence from={18} durationInFrames={210}>
-        <LowerThird name="Gindy" accent={C.red} />
-      </Sequence>
-
-      <CaptionTrack captions={captions} />
-    </AbsoluteFill>
-  );
-};
-
-const FAKE_HEADLINES = [
-  "SHARK FOUND LIVING IN CITY SUBWAY! 🦈",
-  "Man Discovers Secret to STOP AGING Forever!",
-  "Scientists CONFIRM: Moon Is Artificial! 🌙",
-];
-
-const MalkySegment: React.FC = () => {
-  const captions: CaptionEntry[] = [
-    { from: 20,  dur: 78,  text: "Sometimes it's even worse." },
-    { from: 103, dur: 90,  text: "The title can be completely misleading," },
-    { from: 198, dur: 78,  text: "just to make you curious." },
-    { from: 281, dur: 115, text: "You click, but the content doesn't match at all." },
-    { from: 401, dur: 115, text: "It wastes your time and spreads confusion." },
-  ];
-
-  return (
-    <AbsoluteFill>
-      <Video
-        src={staticFile(VIDEOS.malky)}
-        style={{
-          width: "100%", height: "100%", objectFit: "cover",
-          filter: "brightness(0.80) contrast(1.12) saturate(0.48)",
-        }}
-      />
-      {/* teal shadow cast */}
-      <div style={{ position: "absolute", inset: 0, background: "linear-gradient(180deg, transparent 60%, rgba(0,40,50,0.35) 100%)", zIndex: 6, pointerEvents: "none" }} />
-      <Vignette />
-      <GlitchOverlay />
-
-      {/* Fake headlines – one at a time */}
-      {FAKE_HEADLINES.map((h, i) => (
-        <Sequence key={i} from={100 + i * 58} durationInFrames={52}>
-          <AbsoluteFill style={{ display: "flex", alignItems: "center", justifyContent: "flex-end", padding: "0 80px", zIndex: 60 }}>
-            <div style={{ width: 680 }}>
-              <FakeHeadlineCard text={h} />
-            </div>
-          </AbsoluteFill>
-        </Sequence>
-      ))}
-
-      {/* MISLEADING stamps matching each headline */}
-      {[0, 1, 2].map((i) => (
-        <Sequence key={i} from={108 + i * 58} durationInFrames={44}>
-          <Stamp text="MISLEADING" color={C.red} lx="72%" ly="38%" rot={-9} />
-        </Sequence>
-      ))}
-
-      {/* Time wasted counter */}
-      <Sequence from={408} durationInFrames={192}>
-        <TimeWastedCounter />
-      </Sequence>
-
-      {/* Lower third */}
-      <Sequence from={18} durationInFrames={210}>
-        <LowerThird name="Malky" accent="#FF6B35" />
-      </Sequence>
-
-      <CaptionTrack captions={captions} />
-    </AbsoluteFill>
-  );
-};
-
-const YehiaSegment: React.FC = () => {
-  const captions: CaptionEntry[] = [
-    { from: 20,  dur: 105, text: "That's why media literacy is important." },
-    { from: 130, dur: 98,  text: "Before clicking or sharing, ask yourself:" },
-    { from: 233, dur: 92,  text: "Is this source reliable?" },
-    { from: 330, dur: 92,  text: "Does the content match the title?" },
-    { from: 427, dur: 85,  text: "Don't let clickbait trick you." },
-    { from: 517, dur: 83,  text: "Think before you click." },
-  ];
-
-  return (
-    <AbsoluteFill>
-      <Video
-        src={staticFile(VIDEOS.yehia)}
-        style={{
-          width: "100%", height: "100%", objectFit: "cover",
-          filter: "brightness(1.06) contrast(1.02) saturate(1.12)",
-        }}
-      />
-      <Vignette />
-
-      {/* Checklist */}
-      <Sequence from={225} durationInFrames={375}>
-        <Checklist />
-      </Sequence>
-
-      {/* Verified badge */}
-      <Sequence from={410} durationInFrames={190}>
-        <VerifiedBadge />
-      </Sequence>
-
-      {/* Lower third */}
-      <Sequence from={18} durationInFrames={210}>
-        <LowerThird name="Yehia" accent={C.green} />
-      </Sequence>
-
-      <CaptionTrack captions={captions} />
-    </AbsoluteFill>
-  );
-};
-
-// ── Final CTA ────────────────────────────────────────────────────────────────
-const FinalCTA: React.FC = () => {
+// Fake headline card
+const HeadlineCard: React.FC<{ text: string }> = ({ text }) => {
   const frame = useCurrentFrame();
   const { fps } = useVideoConfig();
-  const bg = interpolate(frame, [0, 22], [0, 1], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
-  const l1 = spring({ frame: frame - 18, fps, config: { damping: 120, stiffness: 200 } });
-  const l2 = spring({ frame: frame - 34, fps, config: { damping: 120, stiffness: 200 } });
-  const l3 = spring({ frame: frame - 60, fps, config: { damping: 120, stiffness: 200 } });
+  const scale = spring({ frame, fps, config: { damping: 90, stiffness: 300 } });
+  return (
+    <div style={{
+      fontFamily: FONT, fontWeight: 900, fontSize: 26,
+      color: "#FF8080", textAlign: "center",
+      padding: "18px 24px",
+      backgroundColor: "#160000",
+      border: `2px solid ${C.red}55`,
+      borderRadius: 14,
+      transform: `scale(${scale})`,
+      boxShadow: `0 8px 40px rgba(0,0,0,0.9)`,
+      margin: "0 24px",
+    }}>{text}</div>
+  );
+};
+
+// Media literacy checklist
+const CheckItem: React.FC<{ text: string; delay: number }> = ({ text, delay }) => {
+  const frame = useCurrentFrame();
+  const { fps } = useVideoConfig();
+  const lf = Math.max(0, frame - delay);
+  const slide = spring({ frame: lf, fps, config: { damping: 120, stiffness: 180 } });
+  const x = interpolate(slide, [0, 1], [-300, 0]);
+  const opacity = interpolate(lf, [0, 15], [0, 1], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
+  return (
+    <div style={{
+      transform: `translateX(${x}px)`, opacity,
+      display: "flex", alignItems: "center", gap: 16,
+      backgroundColor: `${C.green}12`,
+      border: `1.5px solid ${C.green}55`,
+      borderRadius: 14, padding: "16px 20px", marginBottom: 16,
+    }}>
+      <div style={{
+        width: 38, height: 38, borderRadius: "50%", backgroundColor: C.green,
+        display: "flex", alignItems: "center", justifyContent: "center",
+        flexShrink: 0, fontWeight: 900, fontSize: 20, color: "#000",
+      }}>✓</div>
+      <div style={{ fontFamily: FONT, fontWeight: 700, fontSize: 26, color: "#fff", lineHeight: 1.25 }}>{text}</div>
+    </div>
+  );
+};
+
+const Checklist: React.FC = () => (
+  <div style={{ position: "absolute", bottom: 140, left: 30, right: 30, zIndex: 70 }}>
+    <CheckItem text="Is this source reliable?" delay={0} />
+    <CheckItem text="Does the content match the title?" delay={28} />
+    <CheckItem text="Think before you click." delay={56} />
+  </div>
+);
+
+// Verified badge
+const VerifiedBadge: React.FC = () => {
+  const frame = useCurrentFrame();
+  const { fps } = useVideoConfig();
+  const scale = spring({ frame, fps, config: { damping: 100, stiffness: 220 } });
+  return (
+    <div style={{
+      position: "absolute", top: 90, right: 30,
+      transform: `scale(${scale})`, zIndex: 80,
+      display: "flex", alignItems: "center", gap: 10,
+      backgroundColor: `${C.green}18`, border: `2px solid ${C.green}`,
+      borderRadius: 50, padding: "10px 22px",
+    }}>
+      <span style={{ fontSize: 22, color: C.green }}>✓</span>
+      <span style={{ fontFamily: FONT, fontWeight: 700, fontSize: 20, color: C.green, letterSpacing: 2 }}>VERIFIED</span>
+    </div>
+  );
+};
+
+// ═══════════════════════════════════════════════════════════════════════════
+// HOOK FRAME  (0–3s)
+// ═══════════════════════════════════════════════════════════════════════════
+const HookFrame: React.FC = () => {
+  const frame = useCurrentFrame();
+  const bg = interpolate(frame, [0, 15], [0, 1], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
+  return (
+    <AbsoluteFill style={{ backgroundColor: C.dark, opacity: bg }}>
+      <AbsoluteFill style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 16 }}>
+        <KineticText text="YOU'VE BEEN" color={C.white} size={88} from="left" delay={5} />
+        <KineticText text="LIED TO" color={C.red} size={110} from="right" delay={15} />
+        <KineticText text="BY THIS TITLE 👇" color={C.yellow} size={62} from="bottom" delay={28} />
+      </AbsoluteFill>
+    </AbsoluteFill>
+  );
+};
+
+// ═══════════════════════════════════════════════════════════════════════════
+// ABDULLAH  (3s–28s)
+// ═══════════════════════════════════════════════════════════════════════════
+const AbdullahSegment: React.FC = () => (
+  <AbsoluteFill>
+    {/* Warm tension grade */}
+    <CinematicClip
+      src={V.abdullah}
+      zoomTo={1.08}
+      filter="brightness(0.84) contrast(1.22) saturate(1.25) sepia(0.08)"
+    />
+    <div style={{ position: "absolute", inset: 0, background: "linear-gradient(160deg, rgba(140,30,0,0.15) 0%, transparent 55%)", zIndex: 6, pointerEvents: "none" }} />
+    <Vignette strength={0.6} />
+
+    {/* CLICKBAIT slam at frame 90 */}
+    <Sequence from={90} durationInFrames={80}>
+      <AbsoluteFill style={{ display: "flex", alignItems: "center", justifyContent: "center", zIndex: 70 }}>
+        <KineticText text="CLICKBAIT" color={C.yellow} size={108} from="right" />
+      </AbsoluteFill>
+    </Sequence>
+
+    {/* Fake post slides up at frame 200 */}
+    <Sequence from={200} durationInFrames={550}>
+      <FakePost />
+    </Sequence>
+
+    {/* Lower third */}
+    <Sequence from={15} durationInFrames={220}>
+      <LowerThird handle="@Abdullah" accent={C.yellow} />
+    </Sequence>
+
+    <Bars />
+  </AbsoluteFill>
+);
+
+// ═══════════════════════════════════════════════════════════════════════════
+// GINDY  (28s–53s)
+// ═══════════════════════════════════════════════════════════════════════════
+const GindySegment: React.FC = () => (
+  <AbsoluteFill>
+    <CinematicClip
+      src={V.gindy}
+      zoomTo={1.07}
+      filter="brightness(0.83) contrast(1.14) saturate(0.9)"
+      fadeIn
+    />
+    <Vignette />
+
+    {/* Split screen at frame 120 */}
+    <Sequence from={120} durationInFrames={630}>
+      <SplitScreen />
+    </Sequence>
+
+    {/* EXAGGERATED stamp at frame 255 */}
+    <Sequence from={255} durationInFrames={495}>
+      <Stamp text="EXAGGERATED" color={C.red} rotation={-10} />
+    </Sequence>
+
+    {/* Lower third */}
+    <Sequence from={15} durationInFrames={220}>
+      <LowerThird handle="@Gindy" accent={C.blue} />
+    </Sequence>
+
+    <Bars />
+  </AbsoluteFill>
+);
+
+// ═══════════════════════════════════════════════════════════════════════════
+// MALKY  (53s–65.7s)
+// ═══════════════════════════════════════════════════════════════════════════
+const FAKE_HEADLINES = [
+  "SHARK FOUND LIVING IN CITY SUBWAY 🦈",
+  "Man Discovers SECRET to Stop Aging Forever!",
+  "Scientists CONFIRM: Moon Is Artificial 🌙",
+];
+
+const MalkySegment: React.FC = () => (
+  <AbsoluteFill>
+    <CinematicClip
+      src={V.malky}
+      zoomTo={1.10}
+      filter="brightness(0.78) contrast(1.14) saturate(0.45)"
+      fadeIn
+    />
+    <div style={{ position: "absolute", inset: 0, background: "linear-gradient(180deg, transparent 55%, rgba(0,30,40,0.4) 100%)", zIndex: 6, pointerEvents: "none" }} />
+    <Vignette strength={0.7} />
+    <GlitchFlash />
+
+    {/* Fast-cut fake headlines */}
+    {FAKE_HEADLINES.map((h, i) => (
+      <Sequence key={i} from={60 + i * 85} durationInFrames={80}>
+        <AbsoluteFill style={{ display: "flex", alignItems: "center", justifyContent: "center", zIndex: 65 }}>
+          <HeadlineCard text={h} />
+        </AbsoluteFill>
+      </Sequence>
+    ))}
+
+    {/* MISLEADING stamp */}
+    {[0, 1, 2].map(i => (
+      <Sequence key={i} from={68 + i * 85} durationInFrames={72}>
+        <Stamp text="MISLEADING" color={C.red} rotation={-9} />
+      </Sequence>
+    ))}
+
+    {/* Lower third */}
+    <Sequence from={15} durationInFrames={200}>
+      <LowerThird handle="@Malky" accent="#FF6B35" />
+    </Sequence>
+
+    <Bars />
+  </AbsoluteFill>
+);
+
+// ═══════════════════════════════════════════════════════════════════════════
+// YEHIA  (65.7s–83.7s)
+// ═══════════════════════════════════════════════════════════════════════════
+const YehiaSegment: React.FC = () => (
+  <AbsoluteFill>
+    <CinematicClip
+      src={V.yehia}
+      zoomTo={1.05}
+      filter="brightness(1.06) contrast(1.02) saturate(1.12)"
+      fadeIn
+    />
+    <Vignette strength={0.4} />
+
+    {/* Checklist */}
+    <Sequence from={200} durationInFrames={340}>
+      <Checklist />
+    </Sequence>
+
+    {/* VERIFIED badge */}
+    <Sequence from={380} durationInFrames={160}>
+      <VerifiedBadge />
+    </Sequence>
+
+    {/* Lower third */}
+    <Sequence from={15} durationInFrames={220}>
+      <LowerThird handle="@Yehia" accent={C.green} />
+    </Sequence>
+
+    <Bars />
+  </AbsoluteFill>
+);
+
+// ═══════════════════════════════════════════════════════════════════════════
+// END CARD  (83.7s–86.7s)
+// ═══════════════════════════════════════════════════════════════════════════
+const EndCard: React.FC = () => {
+  const frame = useCurrentFrame();
+  const { fps } = useVideoConfig();
+  const bg = interpolate(frame, [0, 20], [0, 1], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
+  const l1 = spring({ frame: frame - 15, fps, config: { damping: 120, stiffness: 200 } });
+  const l2 = spring({ frame: frame - 30, fps, config: { damping: 120, stiffness: 200 } });
+  const l3 = spring({ frame: frame - 50, fps, config: { damping: 120, stiffness: 200 } });
 
   return (
     <AbsoluteFill style={{
-      backgroundColor: "#000",
-      opacity: bg,
-      display: "flex",
-      flexDirection: "column",
-      alignItems: "center",
-      justifyContent: "center",
-      gap: 24,
+      backgroundColor: C.dark, opacity: bg,
+      display: "flex", flexDirection: "column",
+      alignItems: "center", justifyContent: "center", gap: 22,
     }}>
-      <div style={{
-        fontFamily: "'Arial Black', sans-serif",
-        fontWeight: 900,
-        fontSize: 108,
-        color: C.yellow,
-        textTransform: "uppercase",
-        letterSpacing: 6,
-        transform: `scale(${l1})`,
-        textShadow: `0 0 70px ${C.yellow}44`,
-        textAlign: "center",
-      }}>THINK BEFORE</div>
-      <div style={{
-        fontFamily: "'Arial Black', sans-serif",
-        fontWeight: 900,
-        fontSize: 108,
-        color: C.yellow,
-        textTransform: "uppercase",
-        letterSpacing: 6,
-        transform: `scale(${l2})`,
-        textShadow: `0 0 70px ${C.yellow}44`,
-      }}>YOU CLICK.</div>
-      <div style={{
-        fontFamily: "Arial, sans-serif",
-        fontWeight: 400,
-        fontSize: 28,
-        color: "#444",
-        textTransform: "uppercase",
-        letterSpacing: 10,
-        transform: `scale(${l3})`,
-        marginTop: 16,
-      }}>Don't believe everything you see.</div>
+      <div style={{ fontFamily: FONT, fontWeight: 900, fontSize: 96, color: C.yellow, textTransform: "uppercase", letterSpacing: 4, transform: `scale(${l1})`, textShadow: `0 0 60px ${C.yellow}44`, textAlign: "center" }}>
+        THINK BEFORE
+      </div>
+      <div style={{ fontFamily: FONT, fontWeight: 900, fontSize: 96, color: C.yellow, textTransform: "uppercase", letterSpacing: 4, transform: `scale(${l2})`, textShadow: `0 0 60px ${C.yellow}44` }}>
+        YOU CLICK.
+      </div>
+      <div style={{ marginTop: 20, fontFamily: "Arial, sans-serif", fontWeight: 400, fontSize: 26, color: "#444", textTransform: "uppercase", letterSpacing: 10, transform: `scale(${l3})`, textAlign: "center" }}>
+        Save this so you don't get tricked 🔖
+      </div>
     </AbsoluteFill>
   );
-};
-
-// ── Flash cut transition ──────────────────────────────────────────────────────
-const FlashCut: React.FC = () => {
-  const frame = useCurrentFrame();
-  const opacity = interpolate(frame, [0, 6, 16], [0.85, 0.2, 0], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
-  return <div style={{ position: "absolute", inset: 0, backgroundColor: "#fff", opacity, zIndex: 300, pointerEvents: "none" }} />;
 };
 
 // ═══════════════════════════════════════════════════════════════════════════
 // ROOT COMPOSITION
 // ═══════════════════════════════════════════════════════════════════════════
 
-export const ClickbaitVideo: React.FC = () => {
-  const CUTS = [A_DUR, A_DUR + G_DUR, A_DUR + G_DUR + M_DUR];
+const A = HOOK_DUR;
+const G = A + ABDULLAH_DUR;
+const M = G + GINDY_DUR;
+const Y = M + MALKY_DUR;
+const E = Y + YEHIA_DUR;
 
-  return (
-    <AbsoluteFill style={{ backgroundColor: "#000" }}>
-      <Sequence from={0}                              durationInFrames={A_DUR}>         <AbdullahSegment /> </Sequence>
-      <Sequence from={A_DUR}                          durationInFrames={G_DUR}>         <GindySegment />    </Sequence>
-      <Sequence from={A_DUR + G_DUR}                  durationInFrames={M_DUR}>         <MalkySegment />    </Sequence>
-      <Sequence from={A_DUR + G_DUR + M_DUR}          durationInFrames={Y_DUR}>         <YehiaSegment />    </Sequence>
-      <Sequence from={A_DUR + G_DUR + M_DUR + Y_DUR}  durationInFrames={CTA_DUR}>       <FinalCTA />        </Sequence>
+const CUTS = [A, G, M, Y];
 
-      {/* Flash cuts between speakers */}
-      {CUTS.map((cut, i) => (
-        <Sequence key={i} from={cut - 4} durationInFrames={20}>
-          <FlashCut />
-        </Sequence>
-      ))}
-    </AbsoluteFill>
-  );
-};
+export const ClickbaitVideo: React.FC = () => (
+  <AbsoluteFill style={{ backgroundColor: C.dark }}>
+    <Sequence from={0} durationInFrames={HOOK_DUR}>     <HookFrame />       </Sequence>
+    <Sequence from={A} durationInFrames={ABDULLAH_DUR}> <AbdullahSegment /> </Sequence>
+    <Sequence from={G} durationInFrames={GINDY_DUR}>    <GindySegment />    </Sequence>
+    <Sequence from={M} durationInFrames={MALKY_DUR}>    <MalkySegment />    </Sequence>
+    <Sequence from={Y} durationInFrames={YEHIA_DUR}>    <YehiaSegment />    </Sequence>
+    <Sequence from={E} durationInFrames={ENDCARD_DUR}>  <EndCard />         </Sequence>
+
+    {/* Flash cuts between speakers */}
+    {CUTS.map((cut, i) => (
+      <Sequence key={i} from={cut - 3} durationInFrames={22}>
+        <FlashCut />
+      </Sequence>
+    ))}
+  </AbsoluteFill>
+);
