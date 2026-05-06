@@ -4,10 +4,21 @@ import { Logo, myCompSchema2 } from "./HelloWorld/Logo";
 import { FitnessVideo } from "./FitnessVideo";
 import { ClickbaitVideo } from "./ClickbaitVideo";
 import { SupplementsVideo } from "./SupplementsVideo";
+import { ShivoReel } from "./ShivoReel";
 
 export const RemotionRoot: React.FC = () => {
   return (
     <>
+      <Composition
+        id="ShivoReel"
+        component={ShivoReel}
+        durationInFrames={900}
+        fps={30}
+        width={1080}
+        height={1920}
+        defaultProps={{}}
+      />
+
       <Composition
         id="SupplementsVideo"
         component={SupplementsVideo}
