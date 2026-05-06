@@ -255,7 +255,7 @@ OUTPUT ONLY the rewritten text. No preamble, no explanation, no quotes around it
 
         {/* Tabs */}
         <div style={{ display: 'flex', gap: 4, marginBottom: 24, padding: 4, borderRadius: 10, background: '#111118', border: '1px solid #1a1a24', width: 'fit-content' }}>
-          {[['setup', '1. Style Setup'], ['humanize', '2. Humanize Text']].map(([key, label]) => (
+          {[['setup', '1. Style Setup'], ['humanize', '2. Humanize Text'], ['presentation', '3. Presentation']].map(([key, label]) => (
             <button
               key={key}
               onClick={() => setTab(key)}
@@ -370,6 +370,32 @@ OUTPUT ONLY the rewritten text. No preamble, no explanation, no quotes around it
             {analyzeError && <ErrorBox msg={analyzeError} />}
 
             {styleProfile && <StyleProfileCard profile={styleProfile} />}
+          </div>
+        )}
+
+        {/* ── PRESENTATION TAB ── */}
+        {tab === 'presentation' && (
+          <div>
+            <div style={{ marginBottom: 24 }}>
+              <div style={{ fontSize: 20, fontWeight: 700, color: '#f1f5f9', marginBottom: 6, letterSpacing: '-0.3px' }}>
+                Presentation
+              </div>
+              <div style={{ fontSize: 14, color: '#64748b', lineHeight: 1.6 }}>
+                Watch the overview presentation below.
+              </div>
+            </div>
+            <div style={{ borderRadius: 12, overflow: 'hidden', border: '1px solid #1a1a24', background: '#111118', display: 'flex', justifyContent: 'center', padding: 24 }}>
+              <iframe
+                src="https://prezi.com/p/embed/isCXu07TuqutP41wLTup/"
+                id="iframe_container"
+                frameBorder="0"
+                allowFullScreen
+                allow="autoplay; fullscreen"
+                height="315"
+                width="560"
+                style={{ maxWidth: '100%', display: 'block' }}
+              />
+            </div>
           </div>
         )}
 
