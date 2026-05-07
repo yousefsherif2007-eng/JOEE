@@ -563,7 +563,7 @@ Output ONLY the caption. No explanation, no title, no quotes around it.`
             value={hook}
             onChange={e => setHook(e.target.value)}
             style={s.input}
-            placeholder='e.g. "I trained legs every day for 30 days. Here\'s what nobody tells you."'
+            placeholder="e.g. I trained legs every day for 30 days. Here's what nobody tells you."
           />
         </div>
 
@@ -971,7 +971,7 @@ function MoneyTab() {
     <div>
       <div style={{ marginBottom: 24 }}>
         <div style={s.section}>Monetization Roadmap</div>
-        <div style={s.sub}>Every follower milestone unlocks new income streams. Here\'s exactly what to do at each level.</div>
+        <div style={s.sub}>Every follower milestone unlocks new income streams. {"Here's"} exactly what to do at each level.</div>
       </div>
 
       {/* Follower input */}
