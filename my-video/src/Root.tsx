@@ -4,10 +4,32 @@ import { Logo, myCompSchema2 } from "./HelloWorld/Logo";
 import { FitnessVideo } from "./FitnessVideo";
 import { ClickbaitVideo } from "./ClickbaitVideo";
 import { SupplementsVideo } from "./SupplementsVideo";
+import { VideoEditorProfile } from "./VideoEditorProfile";
+import { VideographerProfile } from "./VideographerProfile";
 
 export const RemotionRoot: React.FC = () => {
   return (
     <>
+      <Composition
+        id="VideoEditorProfile"
+        component={VideoEditorProfile}
+        durationInFrames={300}
+        fps={30}
+        width={1080}
+        height={1920}
+        defaultProps={{}}
+      />
+
+      <Composition
+        id="VideographerProfile"
+        component={VideographerProfile}
+        durationInFrames={300}
+        fps={30}
+        width={1080}
+        height={1920}
+        defaultProps={{}}
+      />
+
       <Composition
         id="SupplementsVideo"
         component={SupplementsVideo}
